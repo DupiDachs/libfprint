@@ -247,8 +247,8 @@ fpi_ssm_free (FpiSsm *machine)
 static void
 __ssm_call_handler (FpiSsm *machine)
 {
-  fp_dbg ("[%s] %s entering state %d", fp_device_get_driver (machine->dev),
-          machine->name, machine->cur_state);
+  //fp_dbg ("[%s] %s entering state %d", fp_device_get_driver (machine->dev),
+  //        machine->name, machine->cur_state);
   machine->handler (machine, machine->dev);
 }
 
@@ -356,8 +356,8 @@ fpi_ssm_mark_completed (FpiSsm *machine)
     fp_dbg ("[%s] %s completed with error: %s", fp_device_get_driver (machine->dev),
             machine->name, machine->error->message);
   else
-    fp_dbg ("[%s] %s completed successfully", fp_device_get_driver (machine->dev),
-            machine->name);
+    //fp_dbg ("[%s] %s completed successfully", fp_device_get_driver (machine->dev),
+    //        machine->name);
   if (machine->callback)
     {
       GError *error = machine->error ? g_error_copy (machine->error) : NULL;

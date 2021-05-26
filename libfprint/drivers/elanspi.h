@@ -18,6 +18,12 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+//#define ENROLL // load an existing pgm for the enroll procedure
+#define SINGLE //do not stitch image, just output image of single sensor read
+
+//#define SAVE_EACH // useful to output single sensor read data to disk during stitching mode
+// (use to do stitching manually, e.g. PTgui / hugin / ...) required for template matching
+
 #pragma once
 
 #include <config.h>
@@ -335,14 +341,27 @@ static const FpIdEntry elanspi_id_table[] = {
 
 #define ELANSPI_MIN_FRAMES_DEBOUNCE 2
 
-#define ELANSPI_SWIPE_FRAMES_DISCARD 1
-#define ELANSPI_MIN_FRAMES_SWIPE (7 + ELANSPI_SWIPE_FRAMES_DISCARD)
-#define ELANSPI_MAX_FRAMES_SWIPE (20 + ELANSPI_SWIPE_FRAMES_DISCARD)
+#ifdef SINGLE
+#define ELANSPI_SWIPE_FRAMES_DISCARD 8
+#else
+#define ELANSPI_SWIPE_FRAMES_DISCARD 3
+#endif
 
-#define ELANSPI_MAX_FRAME_HEIGHT 43
+#ifdef SINGLE
+  #define ELANSPI_MIN_FRAMES_SWIPE (ELANSPI_SWIPE_FRAMES_DISCARD)
+#else
+  #define ELANSPI_MIN_FRAMES_SWIPE (30+ELANSPI_SWIPE_FRAMES_DISCARD)
+#endif
+#ifdef SINGLE
+  #define ELANSPI_MAX_FRAMES_SWIPE (ELANSPI_SWIPE_FRAMES_DISCARD)
+  #define ELANSPI_MAX_FRAME_HEIGHT 80
+#else
+  #define ELANSPI_MAX_FRAMES_SWIPE (120+ELANSPI_SWIPE_FRAMES_DISCARD)
+  #define ELANSPI_MAX_FRAME_HEIGHT 25
+#endif
 #define ELANSPI_MIN_FRAME_TO_FRAME_DIFF (250 * 250)
 
-#define ELANSPI_HV_SENSOR_FRAME_DELAY 23
+#define ELANSPI_HV_SENSOR_FRAME_DELAY 1
 
 #define ELANSPI_OTP_TIMEOUT_USEC (12 * 1000)
 

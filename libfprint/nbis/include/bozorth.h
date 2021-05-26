@@ -192,6 +192,9 @@ struct xyt_struct {
 	int xcol[     MAX_BOZORTH_MINUTIAE ];
 	int ycol[     MAX_BOZORTH_MINUTIAE ];
 	int thetacol[ MAX_BOZORTH_MINUTIAE ];
+        unsigned char *binarized;
+        unsigned int   wid;
+        unsigned int   hei;
 };
 
 struct xytq_struct {

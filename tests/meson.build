@@ -172,7 +172,7 @@ foreach test_name: unit_tests
     basename = 'test-' + test_name
     test_exe = executable(basename,
         sources: [basename + '.c', test_config_h],
-        dependencies: [ libfprint_private_dep ] + extra_deps,
+        dependencies: [ libfprint_private_dep, opencv_dep] + extra_deps,
         c_args: common_cflags,
         link_with: test_utils,
     )

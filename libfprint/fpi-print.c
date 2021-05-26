@@ -24,6 +24,7 @@
 #include "fp-print-private.h"
 #include "fpi-device.h"
 #include "fpi-compat.h"
+#include <featureMatch.hpp>
 
 /**
  * SECTION: fpi-print
@@ -135,6 +136,9 @@ minutiae_to_xyt (struct fp_minutiae *minutiae,
       xyt->thetacol[i] = c[i].col[2];
     }
   xyt->nrows = nmin;
+  xyt->binarized = minutiae->binarized;
+  xyt->wid = minutiae->wid;
+  xyt->hei = minutiae->hei;
 }
 
 /**
@@ -159,6 +163,8 @@ fpi_print_add_from_image (FpPrint *print,
   GPtrArray *minutiae;
   struct fp_minutiae _minutiae;
   struct xyt_struct *xyt;
+  gint hei, wid;
+  guchar *binarized;
 
   if (print->type != FPI_PRINT_NBIS || !image)
     {
@@ -170,6 +176,7 @@ fpi_print_add_from_image (FpPrint *print,
     }
 
   minutiae = fp_image_get_minutiae (image);
+  binarized = fp_image_get_binarized (image, &wid, &hei);
   if (!minutiae || minutiae->len == 0)
     {
       g_set_error (error,
@@ -182,6 +189,9 @@ fpi_print_add_from_image (FpPrint *print,
   _minutiae.num = minutiae->len;
   _minutiae.list = (struct fp_minutia **) minutiae->pdata;
   _minutiae.alloc = minutiae->len;
+  _minutiae.binarized = binarized;
+  _minutiae.wid = wid;
+  _minutiae.hei = hei;
 
   xyt = g_new0 (struct xyt_struct, 1);
   minutiae_to_xyt (&_minutiae, image->width, image->height, xyt);
@@ -213,7 +223,6 @@ FpiMatchResult
 fpi_print_bz3_match (FpPrint *template, FpPrint *print, gint bz3_threshold, GError **error)
 {
   struct xyt_struct *pstruct;
-  gint probe_len;
   gint i;
 
   /* XXX: Use a different error type? */
@@ -232,17 +241,17 @@ fpi_print_bz3_match (FpPrint *template, FpPrint *print, gint bz3_threshold, GErr
     }
 
   pstruct = g_ptr_array_index (print->prints, 0);
-  probe_len = bozorth_probe_init (pstruct);
 
   for (i = 0; i < template->prints->len; i++)
     {
       struct xyt_struct *gstruct;
       gint score;
       gstruct = g_ptr_array_index (template->prints, i);
-      score = bozorth_to_gallery (probe_len, pstruct, gstruct);
-      fp_dbg ("score %d/%d", score, bz3_threshold);
-
-      if (score >= bz3_threshold)
+      
+      score = performMatchCV(gstruct, pstruct);
+      
+      fp_dbg ("score %d/%d", score, 10);
+      if (score >= 10)
         return FPI_MATCH_SUCCESS;
     }
 

@@ -77,11 +77,31 @@ libversion = '@0@.@1@.@2@'.format(soversion, current, revision)
 versioned_libname = meson.project_name() + '-' + soversion.to_string()
 
 # Dependencies
+opencv_dep = dependency('opencv4', version : ['>= 4.0.0'])
 glib_dep = dependency('glib-2.0', version: '>=' + glib_min_version)
 gio_dep = dependency('gio-unix-2.0', version: '>=' + glib_min_version)
 gobject_dep = dependency('gobject-2.0', version: '>=' + glib_min_version)
 gusb_dep = dependency('gusb', version: '>= 0.2.0')
 mathlib_dep = cc.find_library('m', required: false)
+
+libopencv4_headers = [
+  'opencv4/opencv2/bgsegm.hpp',
+  'opencv4/opencv2/calib3d.hpp',
+  'opencv4/opencv2/core.hpp',
+  'opencv4/opencv2/imgproc.hpp',
+  'opencv4/opencv2/objdetect.hpp',
+  'opencv4/opencv2/opencv.hpp',
+  'opencv4/opencv2/video.hpp',
+]
+
+opencv_found = opencv_dep.found()
+if opencv_found
+  foreach h : libopencv4_headers
+    if not cpp.has_header(h)
+      message('Needed header "' + h + '" not found')
+    endif
+  endforeach
+endif
 
 # The following dependencies are only used for tests
 cairo_dep = dependency('cairo', required: false)

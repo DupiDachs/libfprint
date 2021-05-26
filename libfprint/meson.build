@@ -17,6 +17,7 @@ libfprint_private_sources = [
     'fpi-ssm.c',
     'fpi-usb-transfer.c',
     'fpi-spi-transfer.c',
+    'featureMatch.cpp',
 ]
 
 libfprint_public_headers = [
@@ -292,7 +293,7 @@ libfprint = shared_library(versioned_libname.split('lib')[1],
     link_args : vflag,
     link_depends : mapfile,
     link_with: [libfprint_drivers, libfprint_private],
-    dependencies: deps,
+    dependencies: [deps,opencv_dep],
     install: true)
 
 libfprint_dep = declare_dependency(link_with: libfprint,
@@ -320,7 +321,7 @@ libfprint_private_dep = declare_dependency(
 
 udev_hwdb = executable('fprint-list-udev-hwdb',
     'fprint-list-udev-hwdb.c',
-    dependencies: libfprint_private_dep,
+    dependencies: [libfprint_private_dep,opencv_dep],
     link_with: libfprint_drivers,
     install: false)
 
@@ -345,7 +346,7 @@ custom_target('sync-udev-hwdb',
 
 supported_devices = executable('fprint-list-supported-devices',
     'fprint-list-supported-devices.c',
-    dependencies: libfprint_private_dep,
+    dependencies: [libfprint_private_dep, opencv_dep],
     link_with: libfprint_drivers,
     install: false)
 

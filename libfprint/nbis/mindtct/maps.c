@@ -193,7 +193,7 @@ int gen_image_maps(int **odmap, int **olcmap, int **olfmap, int **ohcmap,
                            dir2rad, lfsparms);
 
    /* 8. Set the Direction Map values in the image margin to INVALID. */
-   set_margin_blocks(direction_map, mw, mh, INVALID_DIR);
+   //set_margin_blocks(direction_map, mw, mh, INVALID_DIR);
 
    /* 9. Generate High Curvature Map from interpolated Direction Map. */
    if((ret = gen_high_curve_map(&high_curve_map, direction_map, mw, mh,

@@ -50,7 +50,8 @@ gboolean      fp_image_detect_minutiae_finish (FpImage      *self,
 const guchar * fp_image_get_data (FpImage *self,
                                   gsize   *len);
 const guchar * fp_image_get_binarized (FpImage *self,
-                                       gsize   *len);
+                                       gint   *wid,
+                                       gint   *hei);
 
 void           fp_minutia_get_coords (FpMinutia *min,
                                       gint      *x,

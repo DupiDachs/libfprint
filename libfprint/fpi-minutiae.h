@@ -39,7 +39,10 @@ struct fp_minutia
 /* fp_minutiae structure definition */
 struct fp_minutiae
 {
-  int                 alloc;
-  int                 num;
+  int                alloc;
+  int                  num;
   struct fp_minutia **list;
+  guchar        *binarized;
+  guint                wid;
+  guint                hei;
 };

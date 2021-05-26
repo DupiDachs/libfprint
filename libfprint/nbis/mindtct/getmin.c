@@ -158,6 +158,9 @@ int get_minutiae(MINUTIAE **ominutiae, int **oquality_map,
 
    /* Set output pointers. */
    *ominutiae = minutiae;
+   (*ominutiae)->binarized = bdata;
+   (*ominutiae)->hei = bh;
+   (*ominutiae)->wid = bh;
    *oquality_map = quality_map;
    *odirection_map = direction_map;
    *olow_contrast_map = low_contrast_map;

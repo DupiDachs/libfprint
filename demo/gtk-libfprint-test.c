@@ -145,7 +145,7 @@ img_to_pixbuf (FpImage          *img,
   height = fp_image_get_height (img);
 
   if (flags & IMAGE_DISPLAY_BINARY)
-    data = fp_image_get_binarized (img, NULL);
+    data = fp_image_get_binarized (img, NULL, NULL);
   else
     data = fp_image_get_data (img, NULL);
 

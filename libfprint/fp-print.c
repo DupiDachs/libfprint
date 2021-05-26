@@ -610,7 +610,7 @@ fp_print_equal (FpPrint *self, FpPrint *other)
     }
 }
 
-#define FPI_PRINT_VARIANT_TYPE G_VARIANT_TYPE ("(issbymsmsia{sv}v)")
+#define FPI_PRINT_VARIANT_TYPE G_VARIANT_TYPE ("(iiayissbymsmsia{sv}v)")
 
 G_STATIC_ASSERT (sizeof (((struct xyt_struct *) NULL)->xcol[0]) == 4);
 
@@ -638,6 +638,17 @@ fp_print_serialize (FpPrint *print,
 
   g_assert (data);
   g_assert (length);
+  
+  /* also store binarized image */
+  struct xyt_struct *xyt2 = g_ptr_array_index (print->prints, 0);
+  
+  g_variant_builder_add (&builder, "i", xyt2->wid);
+  g_variant_builder_add (&builder, "i", xyt2->hei);
+  g_variant_builder_add_value (&builder,
+                         g_variant_new_fixed_array (G_VARIANT_TYPE_BYTE,
+                                                    xyt2->binarized,
+                                                    xyt2->wid*xyt2->hei,
+                                                    sizeof (xyt2->binarized[0])));
 
   g_variant_builder_add (&builder, "i", print->type);
   g_variant_builder_add (&builder, "s", print->driver);
@@ -753,6 +764,11 @@ fp_print_deserialize (const guchar *data,
   const gchar *driver;
   const gchar *device_id;
   gboolean device_stored;
+  
+  unsigned int wid;
+  unsigned int hei;
+  GVariantIter *iter;
+  guchar *binarized;
 
   g_assert (data);
   g_assert (length > 3);
@@ -783,7 +799,10 @@ fp_print_deserialize (const guchar *data,
     value = g_variant_get_normal_form (raw_value);
 
   g_variant_get (value,
-                 "(i&s&sbymsmsi@a{sv}v)",
+                 "(iiayi&s&sbymsmsi@a{sv}v)",
+                 &wid,
+                 &hei,
+                 &iter,
                  &type,
                  &driver,
                  &device_id,
@@ -796,6 +815,13 @@ fp_print_deserialize (const guchar *data,
                  &print_data);
 
   finger = finger_int8;
+  
+  // get the binarized image data
+  gsize len = g_variant_iter_n_children (iter);
+  binarized = g_new (guchar, len);
+  gsize j = 0;
+  while (g_variant_iter_loop (iter, "y", &binarized[j]))
+      j++;
 
   /* Assume data is valid at this point if the values are somewhat sane. */
   if (type == FPI_PRINT_NBIS)
@@ -843,6 +869,10 @@ fp_print_deserialize (const guchar *data,
           memcpy (xyt->xcol, xcol, sizeof (xcol[0]) * xlen);
           memcpy (xyt->ycol, ycol, sizeof (xcol[0]) * xlen);
           memcpy (xyt->thetacol, thetacol, sizeof (xcol[0]) * xlen);
+
+          xyt->binarized = binarized;
+          xyt->wid = wid;
+          xyt->hei = hei;
 
           g_ptr_array_add (result->prints, g_steal_pointer (&xyt));
         }

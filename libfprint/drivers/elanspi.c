@@ -30,6 +30,9 @@
 #include <sys/stat.h>
 #include <linux/types.h>
 #include <errno.h>
+#include <stdio.h>
+
+FpImage *load_image_PGM (const char *path);
 
 struct _FpiDeviceElanSpi
 {
@@ -86,6 +89,8 @@ struct _FpiDeviceElanSpi
 
   /* active SPI status info */
   int spi_fd;
+  int done;
+  int count;
 };
 
 G_DECLARE_FINAL_TYPE (FpiDeviceElanSpi, fpi_device_elanspi, FPI, DEVICE_ELANSPI, FpImageDevice);
@@ -870,6 +875,14 @@ elanspi_calibrate_hv_handler (FpiSsm *ssm, FpDevice *dev)
         self->hv_data.gdac_value -= self->hv_data.gdac_step;
       else
         self->hv_data.gdac_value += self->hv_data.gdac_step;
+      // problem is with fprintd if you retry the whole process then your finger is still on!
+      // I hence decided to catch that case and set a reasonable value for my sensor
+      // don't know if it works for your sensor ...
+      if (self->hv_data.gdac_value > 252)
+      {
+        self->hv_data.gdac_value = 176;
+      }
+      
       /* advance back to capture */
       fpi_ssm_jump_to_state (ssm, ELANSPI_CALIBHV_WRITE_GDAC_H);
       return;
@@ -1123,7 +1136,10 @@ elanspi_correct_with_bg (FpiDeviceElanSpi *self, guint16 *raw_image)
 {
   gint count = 0;
 
-  for (int i = 0; i < self->sensor_width * self->sensor_height; ++i)
+// problem is with fprintd if you retry the whole process then your finger is still on!
+// so the bg information would make detection impossible
+// I skip it and it is still working reliably
+  /*for (int i = 0; i < self->sensor_width * self->sensor_height; ++i)
     {
       if (raw_image[i] < self->bg_image[i])
         {
@@ -1134,7 +1150,7 @@ elanspi_correct_with_bg (FpiDeviceElanSpi *self, guint16 *raw_image)
         {
           raw_image[i] -= self->bg_image[i];
         }
-    }
+    }*/
 
   return count;
 }
@@ -1165,6 +1181,11 @@ elanspi_lookup_pixel_with_rotation (FpiDeviceElanSpi *self, const guint16 *data_
 static enum elanspi_guess_result
 elanspi_guess_image (FpiDeviceElanSpi *self, guint16 *raw_image)
 {
+#ifdef SINGLE
+  if (self->done) {
+    return ELANSPI_GUESS_EMPTY;
+  }
+#endif
   g_autofree guint16 * image_copy = g_malloc0 (self->sensor_height * self->sensor_width * 2);
 
   memcpy (image_copy, raw_image, self->sensor_height * self->sensor_width * 2);
@@ -1192,7 +1213,7 @@ elanspi_guess_image (FpiDeviceElanSpi *self, guint16 *raw_image)
   if (self->frame_width && self->frame_height) /* necessary to make clang happy about div0 */
     sq_stddev /= (self->frame_width * self->frame_height);
 
-  fp_dbg ("<guess> stddev=%ld, ip=%d, is_fp=%d, is_empty=%d", sq_stddev, invalid_percent, is_fp, is_empty);
+  //fp_dbg ("<guess> stddev=%ld, ip=%d, is_fp=%d, is_empty=%d", sq_stddev, invalid_percent, is_fp, is_empty);
 
   if (invalid_percent < ELANSPI_MAX_REAL_INVALID_PERCENT)
     ++is_fp;
@@ -1301,8 +1322,16 @@ static void
 elanspi_fp_frame_stitch_and_submit (FpiDeviceElanSpi *self)
 {
   /* create assembling context */
-
-  self->assembling_ctx.image_width = (self->frame_width * 3) / 2;
+	
+  #ifdef SINGLE
+    self->assembling_ctx.image_width = self->frame_width;
+  #else
+    #ifdef SAVE_EACH
+      self->assembling_ctx.image_width = self->frame_width;
+    #else
+      self->assembling_ctx.image_width = (self->frame_width * 3) / 2;
+    #endif
+  #endif
 
   self->assembling_ctx.frame_width = self->frame_width;
   self->assembling_ctx.frame_height = self->frame_height;
@@ -1313,12 +1342,20 @@ elanspi_fp_frame_stitch_and_submit (FpiDeviceElanSpi *self)
   GSList *frame_start = g_slist_nth (self->fp_frame_list, ELANSPI_SWIPE_FRAMES_DISCARD);
 
   fpi_do_movement_estimation (&self->assembling_ctx, frame_start);
-  FpImage *img = fpi_assemble_frames (&self->assembling_ctx, frame_start);
+  #ifdef ENROLL
+    FpImage *img = load_image_PGM ("FULL.pgm");
+  #else
+    FpImage *img = fpi_assemble_frames (&self->assembling_ctx, frame_start);
+  #endif
   FpImage *scaled = fpi_image_resize (img, 2, 2);
 
   g_object_unref (img);
-
-  scaled->flags |= FPI_IMAGE_PARTIAL | FPI_IMAGE_COLORS_INVERTED;
+  
+  #ifdef SINGLE
+    scaled->flags = FPI_IMAGE_COLORS_INVERTED | FPI_IMAGE_V_FLIPPED;// | FPI_IMAGE_H_FLIPPED;
+  #else
+    scaled->flags = FPI_IMAGE_PARTIAL | FPI_IMAGE_COLORS_INVERTED | FPI_IMAGE_V_FLIPPED; // | FPI_IMAGE_H_FLIPPED;
+  #endif
 
   /* submit image */
   fpi_image_device_image_captured (FP_IMAGE_DEVICE (self), scaled);
@@ -1328,6 +1365,39 @@ elanspi_fp_frame_stitch_and_submit (FpiDeviceElanSpi *self)
   self->fp_frame_list = NULL;
 }
 
+FpImage *
+load_image_PGM (const char *path)
+{
+  FILE *fd = fopen (path, "r");
+  int r, wid, hei, res;
+  FpImage *img;
+   
+  if (!fd)
+  {
+    fp_dbg("Could not read file. You are fucked. Path?");
+  }
+  fp_dbg(path);
+  r = fscanf(fd, "P5 %d %d %d", &wid, &hei, &res);
+
+  fp_dbg("bla: %d", r);
+  fp_dbg("width: %d", wid);
+  fp_dbg("height: %d", hei);
+  fp_dbg("resolution: %d", res);
+  
+  img = fp_image_new (wid, hei);
+  img->width = wid;
+  img->height = hei;
+  
+  r = fread(img->data, 1, wid*hei, fd);
+  //g_debug ("image size: %d", r);
+  //g_debug ("specified size: %d", wid*hei);
+  fclose (fd);
+  g_debug ("done reading data from '%s'", path);
+
+  return img;
+}
+
+//	scaled->flags |= FPI_IMAGE_PARTIAL | FPI_IMAGE_COLORS_INVERTED | FPI_IMAGE_V_FLIPPED | FPI_IMAGE_H_FLIPPED;
 static gint64
 elanspi_get_frame_diff_stddev_sq (FpiDeviceElanSpi *self, guint16 *frame1, guint16 *frame2)
 {
@@ -1372,6 +1442,7 @@ elanspi_fp_frame_handler (FpiSsm *ssm, FpiDeviceElanSpi *self)
               fp_dbg ("<fp_frame> have enough frames, submitting");
 finish_capture:
               elanspi_fp_frame_stitch_and_submit (self);
+              self->done = 1;
             }
           else
             {
@@ -1418,6 +1489,7 @@ finish_capture:
 
       if (self->fp_frame_list)
         {
+          #ifndef SINGLE
           gint difference = elanspi_get_frame_diff_stddev_sq (self, self->last_image, self->prev_frame_image);
           fp_dbg ("<fp_frame> diff = %d", difference);
           if (difference < ELANSPI_MIN_FRAME_TO_FRAME_DIFF)
@@ -1426,9 +1498,16 @@ finish_capture:
               g_free (this_frame);
               break;
             }
+          #endif
         }
       self->fp_frame_list = g_slist_prepend (self->fp_frame_list, this_frame);
       memcpy (self->prev_frame_image, self->last_image, self->sensor_height * self->sensor_width * 2);
+      #ifdef SAVE_EACH
+        ++self->count;
+        char str[512];
+        snprintf(str, sizeof str, "cut/1_%d.pgm", self->count);
+        save_image_PGM (this_frame->data, self->sensor_width, self->sensor_height, self->sensor_height * self->sensor_width, str);
+      #endif
       break;
     }
 
@@ -1614,6 +1693,7 @@ elanspi_change_state (FpImageDevice *dev, FpiImageDeviceState state)
 
   if (state == FPI_IMAGE_DEVICE_STATE_AWAIT_FINGER_ON)
     {
+      self->done = 0;
       if (self->capturing)
         {
           fp_warn ("<change_state> multiple captures");
@@ -1640,6 +1720,8 @@ fpi_device_elanspi_init (FpiDeviceElanSpi *self)
   self->spi_fd = -1;
   self->sensor_id = 0xff;
   self->bg_image = NULL;
+  self->done = 0;
+  self->count = 0;
 }
 
 static void
@@ -1670,7 +1752,7 @@ fpi_device_elanspi_class_init (FpiDeviceElanSpiClass *klass)
   dev_class->type = FP_DEVICE_TYPE_UDEV;
   dev_class->id_table = elanspi_id_table;
   dev_class->scan_type = FP_SCAN_TYPE_SWIPE;
-  dev_class->nr_enroll_stages = 7;       /* these sensors are very hit or miss, may as well record a few extras */
+  dev_class->nr_enroll_stages = 1;       /* these sensors are very hit or miss, may as well record a few extras */
 
   img_class->bz3_threshold = 24;
   img_class->img_open = elanspi_open;

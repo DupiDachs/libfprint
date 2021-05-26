@@ -395,19 +395,23 @@ fp_image_get_data (FpImage *self, gsize *len)
 /**
  * fp_image_get_binarized:
  * @self: A #FpImage
- * @len: (out) (optional): Return location for length or %NULL
+ * @wid: Return width of image
+ * @hei: Return widt of image
  *
  * Gets the binarized data for an image. This data must not be modified or
  * freed. You need to first detect the minutiae using
  * fp_image_detect_minutiae().
  *
- * Returns: (transfer none) (array length=len): The binarized image data
+ * Returns: (transfer none) (array length=wid): The binarized image data
  */
 const guchar *
-fp_image_get_binarized (FpImage *self, gsize *len)
+fp_image_get_binarized (FpImage *self, gint *wid, gint *hei)
 {
-  if (len && self->binarized)
-    *len = self->width * self->height;
+  if (self->binarized)
+  {
+    *wid = self->width;
+    *hei = self->height;
+  }
 
   return self->binarized;
 }
