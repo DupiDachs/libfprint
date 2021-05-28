@@ -6,8 +6,17 @@
 - allow for generating this full-size image within libfprint (3)
 
 ## The current status
-- goal (1) achieved with AKAZE features based matching
+- goal (1) achieved with AKAZE feature based matching
+  - first match the single read with the full-sized image
+  - take the median coordinates of the matches and cut out a portion of the full image to repeat the matching
+    - this has the advantage of having less keypoints to deal with in a second run
+    - reduces false positives&negatives
+  - calculate the homography between the matched keypoints and filter for false matches
+    - if we have enough matches fulfilling the homography, we have a MATCH!
 - goal (2) achieved by providing a manually generated full-sized image and saving the (binarized, i.e. not gray-scale) image data in addition to the minutia data during enroll
   - upon verify/identify, the data is loaded for the matching
   - the full-sized image was generated manually using PTgui to stitch several small images
 - goal (3) to be done ... (not sure when ...)
+
+If you want to use this code on your system, you need to install openCV first (and possibly do other stuff, which I do not remember anymore).
+Feel free to drop me a message, I'll try to help out.
