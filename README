@@ -9,8 +9,8 @@
 - goal (1) achieved with AKAZE feature based matching
   - first match the single read with the full-sized image
   - take the median coordinates of the matches and cut out a portion of the full image to repeat the matching
-    - this has the advantage of having less keypoints to deal with in a second run
-    - reduces false positives&negatives
+    - optimally, the cutout directly corresponds to the single read (of course we add some margin ...)
+    - reduces false positives & negatives as we cannot match parts of the images that do not belong together
   - calculate the homography between the matched keypoints and filter for false matches
     - if we have enough matches fulfilling the homography, we have a MATCH!
 - goal (2) achieved by providing a manually generated full-sized image and saving the (binarized, i.e. not gray-scale) image data in addition to the minutia data during enroll
